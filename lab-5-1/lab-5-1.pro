@@ -11,11 +11,13 @@ CONFIG += c++17
 SOURCES += \
     main.cpp \
     mainwindow.cpp \
+    obstaculo.cpp \
     particula.cpp \
     vectordes.cpp
 
 HEADERS += \
     mainwindow.h \
+    obstaculo.h \
     particula.h \
     vectordes.h
 
