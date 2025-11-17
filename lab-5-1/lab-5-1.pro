@@ -13,12 +13,14 @@ SOURCES += \
     mainwindow.cpp \
     obstaculo.cpp \
     particula.cpp \
+    simulation.cpp \
     vectordes.cpp
 
 HEADERS += \
     mainwindow.h \
     obstaculo.h \
     particula.h \
+    simulation.h \
     vectordes.h
 
 FORMS += \
