@@ -36,11 +36,10 @@ MainWindow::MainWindow(QWidget *parent)
     h->addWidget(stopBtn);
     lay->addWidget(controls);
 
-    // Crear simulación
-    Simulation *sim = new Simulation(scene);
-    sim->setBounds(800,600);
-    sim->setGravity(0.0);
-    sim->setRestitucionObstaculo(0.6);
+    // Crear simulación — ahora recibe la scene y tamaño
+    Simulation *sim = new Simulation(scene, 800, 600);
+    sim->setGravedad(0.0);
+    sim->setRestitucion(0.8);
 
     // Añadir partículas (ejemplo)
     sim->agregarParticula(new particula(100,100,10,2.0, vectordes(120,30)));
@@ -58,13 +57,11 @@ MainWindow::MainWindow(QWidget *parent)
     QTimer *timer = new QTimer(this);
     connect(timer, &QTimer::timeout, [sim](){ sim->paso(0.016); });
 
-    connect(startBtn, &QPushButton::clicked, timer, static_cast<void(QTimer::*)()>(&QTimer::start));
-    connect(stopBtn,  &QPushButton::clicked, timer, &QTimer::stop);
-
-    // startBtn necesita un parámetro (ms)
     connect(startBtn, &QPushButton::clicked, [timer](){ timer->start(16); });
+    connect(stopBtn,  &QPushButton::clicked, [timer](){ timer->stop(); });
 
-    // guardamos punteros en ui si quieres (opcional)
+    // opcional: comenzar automáticamente
+    // timer->start(16);
 }
 
 MainWindow::~MainWindow()

@@ -1,90 +1,186 @@
 #include "simulation.h"
 #include <cmath>
 
-Simulation::Simulation(QGraphicsScene *scene)
-    : m_scene(scene)
+Simulation::Simulation(QGraphicsScene *scene, double w, double h)
+    : m_scene(scene), ancho(w), alto(h)
 {}
 
-void Simulation::setBounds(double width, double height){ m_w = width; m_h = height; }
-void Simulation::setGravity(double g){ m_g = g; }
-void Simulation::setRestitucionObstaculo(double e){ m_e = e; }
-
-void Simulation::agregarParticula(particula *p){
+void Simulation::agregarParticula(particula *p) {
     m_particulas.push_back(p);
-    m_scene->addItem(p);
+    if (m_scene) m_scene->addItem(p);
 }
 
-void Simulation::agregarObstaculo(obstaculo *o){
+void Simulation::agregarObstaculo(obstaculo *o) {
     m_obstaculos.push_back(o);
-    m_scene->addItem(o);
+    if (m_scene) m_scene->addItem(o);
 }
 
-void Simulation::paso(double dt){
-    // aplicar gravedad y mover
-    for(auto p : m_particulas){
-        if(m_g != 0.0){
-            p->aplicarImpulso(vectordes(0, p->masa() * m_g * dt));
-        }
+void Simulation::setGravedad(double g) {
+    gravedad = g;
+}
+
+void Simulation::setRestitucion(double r) {
+    restitucion = r;
+}
+
+void Simulation::paso(double dt)
+{
+    // 1. Actualizar movimiento
+    for (auto p : m_particulas) {
+        if (gravedad != 0)
+            p->aplicarImpulso(vectordes(0, gravedad * p->masa() * dt));
+
         p->paso(dt);
     }
 
-    // colisiones contra paredes
-    for(auto p : m_particulas) manejarPared(*p);
+    // 2. Colisiones con paredes
+    for (auto p : m_particulas)
+        manejarPared(p);
 
-    // colisiones contra obstáculos
-    for(auto p : m_particulas){
-        for(auto o : m_obstaculos) manejarObstaculo(*p, *o);
+    // 3. Colisiones con obstáculos
+    for (auto p : m_particulas)
+        for (auto o : m_obstaculos)
+            manejarObstaculo(p, *o);
+
+    // 4. Colisiones entre partículas
+    manejarColisionesEntreParticulas();
+}
+
+void Simulation::manejarPared(particula *p)
+{
+    vectordes pos = p->posicion();
+    vectordes vel = p->velocidad();
+    double r = p->radio();
+
+    bool cambio = false;
+
+    if (pos.x - r < 0) {
+        pos.x = r;
+        vel.x = -vel.x * restitucion;
+        cambio = true;
+    }
+    if (pos.x + r > ancho) {
+        pos.x = ancho - r;
+        vel.x = -vel.x * restitucion;
+        cambio = true;
+    }
+    if (pos.y - r < 0) {
+        pos.y = r;
+        vel.y = -vel.y * restitucion;
+        cambio = true;
+    }
+    if (pos.y + r > alto) {
+        pos.y = alto - r;
+        vel.y = -vel.y * restitucion;
+        cambio = true;
     }
 
-    // colisiones entre partículas (merging)
-    manejarColisionesParticulas();
+    if (cambio) {
+        // aplicar corrección inmediata: fijar posición y velocidad
+        p->setPosicion(pos);
+        p->setVelocidad(vel);
+    }
 }
 
-void Simulation::manejarPared(particula &p){
-    vectordes pos = p.posicion();
-    vectordes vel = p.velocidad();
-    double r = p.radio();
+void Simulation::manejarObstaculo(particula *p, const obstaculo &o)
+{
+    double px = p->posicion().x;
+    double py = p->posicion().y;
+    double r  = p->radio();
 
-    if(pos.x - r < 0){ pos.x = r; vel.x = -vel.x; }
-    if(pos.x + r > m_w){ pos.x = m_w - r; vel.x = -vel.x; }
-    if(pos.y - r < 0){ pos.y = r; vel.y = -vel.y; }
-    if(pos.y + r > m_h){ pos.y = m_h - r; vel.y = -vel.y; }
+    double rx = o.x();
+    double ry = o.y();
+    double rw = o.w();
+    double rh = o.h();
 
+    // Si no hay colisión, salir
+    if (!p->colicionaConRectangulo(rx, ry, rw, rh))
+        return;
 
-    vectordes dv = vel - p.velocidad();
-    p.aplicarImpulso(dv * p.masa());
+    vectordes vel = p->velocidad();
 
-    p.aplicarImpulso(vectordes(0,0));
+    // Calcular penetración en cada lado
+    double penLeft   = (px + r) - rx;
+    double penRight  = (rx + rw) - (px - r);
+    double penTop    = (py + r) - ry;
+    double penBottom = (ry + rh) - (py - r);
+
+    // Elegir menor penetración para saber cara de colisión
+    double minPen = std::min(std::min(penLeft, penRight),
+                             std::min(penTop, penBottom));
+
+    vectordes newPos = p->posicion();
+
+    if (minPen == penLeft) {
+        // Golpeó por la izquierda
+        newPos.x = rx - r;
+        vel.x = -vel.x * restitucion;
+    }
+    else if (minPen == penRight) {
+        // Golpeó por la derecha
+        newPos.x = rx + rw + r;
+        vel.x = -vel.x * restitucion;
+    }
+    else if (minPen == penTop) {
+        // Golpeó por arriba
+        newPos.y = ry - r;
+        vel.y = -vel.y * restitucion;
+    }
+    else { // penBottom
+        // Golpeó por abajo
+        newPos.y = ry + rh + r;
+        vel.y = -vel.y * restitucion;
+    }
+
+    // Aplicar corrección de posición y velocidad
+    p->setPosicion(newPos);
+    p->setVelocidad(vel);
 }
 
-void Simulation::manejarObstaculo(particula &p, obstaculo &o){
-    if(!p.colicionaConRectangulo(o.x(), o.y(), o.w(), o.h())) return;
+void Simulation::manejarColisionesEntreParticulas()
+{
+    for (size_t i = 0; i < m_particulas.size(); ++i) {
+        for (size_t jj = i + 1; jj < m_particulas.size(); ++jj) {
 
-    vectordes vel = p.velocidad();
+            particula *a = m_particulas[i];
+            particula *b = m_particulas[jj];
 
-    double left = std::abs(p.posicion().x - o.x());
-    double right = std::abs(p.posicion().x - (o.x()+o.w()));
-    double top = std::abs(p.posicion().y - o.y());
-    double bottom = std::abs(p.posicion().y - (o.y()+o.h()));
+            if (!a->colicionaCon(*b)) continue;
 
-    double mn = std::min(std::min(left,right), std::min(top,bottom));
+            vectordes va = a->velocidad();
+            vectordes vb = b->velocidad();
 
-    if(mn == left || mn == right) vel.x = -m_e * vel.x;
-    else vel.y = -m_e * vel.y;
+            // Conservación del momento + restitución
+            vectordes normal = vectordes(b->posicion().x - a->posicion().x,
+                                         b->posicion().y - a->posicion().y);
 
-    vectordes dv = vel - p.velocidad();
-    p.aplicarImpulso(dv * p.masa());
-}
+            double dist = longitud(normal);
+            if (dist == 0) continue;
 
-void Simulation::manejarColisionesParticulas(){
-    for(size_t i=0;i<m_particulas.size();++i){
-        for(size_t j=i+1;j<m_particulas.size();++j){
-            if(m_particulas[i]->colicionaCon(*m_particulas[j])){
-                m_particulas[i]->absorber(*m_particulas[j]);
-                m_scene->removeItem(m_particulas[j]);
-                delete m_particulas[j];
-                m_particulas.erase(m_particulas.begin() + j);
-                --j;
+            normal = normal / dist;
+
+            double vRel = punto(vb - va, normal);
+            // si se separan, no aplicar
+            if (vRel >= 0) continue;
+
+            double e = restitucion;
+            double invMass = 1.0 / a->masa() + 1.0 / b->masa();
+
+            double impulsoMagnitud = -(1 + e) * vRel / invMass;
+
+            vectordes impulso = normal * impulsoMagnitud;
+
+            a->aplicarImpulso(impulso * -1);
+            b->aplicarImpulso(impulso);
+
+            // separar ligeramente si están muy penetradas (corrección posicional mínima)
+            double overlap = a->radio() + b->radio() - dist;
+            if (overlap > 0) {
+                vectordes correction = normal * (overlap / (a->masa() + b->masa())); // simple
+                a->setPosicion(vectordes(a->posicion().x - correction.x * b->masa(),
+                                         a->posicion().y - correction.y * b->masa()));
+                b->setPosicion(vectordes(b->posicion().x + correction.x * a->masa(),
+                                         b->posicion().y + correction.y * a->masa()));
             }
         }
     }

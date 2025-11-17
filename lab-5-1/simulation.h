@@ -1,38 +1,36 @@
 #ifndef SIMULATION_H
 #define SIMULATION_H
 
-#include <QGraphicsScene>
 #include <vector>
+#include <QGraphicsScene>
 #include "particula.h"
 #include "obstaculo.h"
 
-class Simulation
-{
+class Simulation {
 public:
-    Simulation(QGraphicsScene *scene);
-
-    void setBounds(double width, double height);
-    void setGravity(double g);
-    void setRestitucionObstaculo(double e);
+    // Ahora recibe la scene para dibujar automáticamente los items
+    Simulation(QGraphicsScene *scene, double w, double h);
 
     void agregarParticula(particula *p);
     void agregarObstaculo(obstaculo *o);
+
+    void setGravedad(double g);
+    void setRestitucion(double r);
 
     void paso(double dt);
 
 private:
     QGraphicsScene *m_scene;
-    double m_w = 800;
-    double m_h = 600;
-    double m_g = 0;
-    double m_e = 0;
+    double ancho, alto;
+    double gravedad = 0.0;
+    double restitucion = 0.8; // rebote más energético
 
     std::vector<particula*> m_particulas;
     std::vector<obstaculo*> m_obstaculos;
 
-    void manejarPared(particula &p);
-    void manejarObstaculo(particula &p, obstaculo &o);
-    void manejarColisionesParticulas();
+    void manejarPared(particula *p);
+    void manejarObstaculo(particula *p, const obstaculo &o);
+    void manejarColisionesEntreParticulas();
 };
 
-#endif // SIMULATION_H
+#endif
