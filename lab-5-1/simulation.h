@@ -23,7 +23,7 @@ private:
     QGraphicsScene *m_scene;
     double ancho, alto;
     double gravedad = 0.0;
-    double restitucion = 0.8; // rebote más energético
+    double restitucion = 1; // rebote más energético
 
     std::vector<particula*> m_particulas;
     std::vector<obstaculo*> m_obstaculos;

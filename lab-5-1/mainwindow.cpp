@@ -55,7 +55,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     // Timer para pasos de simulación
     QTimer *timer = new QTimer(this);
-    connect(timer, &QTimer::timeout, [sim](){ sim->paso(0.016); });
+    connect(timer, &QTimer::timeout, [sim](){ sim->paso(0.001); });
 
     connect(startBtn, &QPushButton::clicked, [timer](){ timer->start(16); });
     connect(stopBtn,  &QPushButton::clicked, [timer](){ timer->stop(); });
